@@ -4,6 +4,7 @@
 import threading
 import time
 import traceback
+from lib.core.data import logger
 import Queue
 import random
 
@@ -42,7 +43,7 @@ class w8_threadpool:
         
         for tt in th:
             tt.join()
-            # It can quit with Ctrl-C
+        # It can quit with Ctrl-C
         # while 1:
         #     if self.thread_count > 0 and self.isContinue:
         #         time.sleep(0.01)
@@ -72,23 +73,25 @@ class w8_threadpool:
             except Exception:
                 errmsg = traceback.format_exc()
                 self.isContinue = False
+                logger.error(errmsg)
 
             self.changeScanCount(-1)
         self.changeThreadCount(-1)
 
 
 if __name__ == '__main__':
-    def calucator(num):
-        i = random.randint(1, 100)
-        u = num
-        a = i * u
-        if (a % 6 == 0):
-            for x in range(5):
-                print "new thread"
-                p.push(x)
+    # def calucator(num):
+    #     i = random.randint(1, 100)
+    #     u = num
+    #     a = i * u
+    #     if (a % 6 == 0):
+    #         for x in range(5):
+    #             print "new thread"
+    #             p.push(x)
 
-    p = w8_threadpool(3, calucator)
-    for i in range(100000):
-        p.push(i)
-    p.run()
+    # p = w8_threadpool(3, calucator)
+    # for i in range(100000):
+    #     p.push(i)
+    # p.run()
+    pass
 

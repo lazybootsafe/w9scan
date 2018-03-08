@@ -14,21 +14,23 @@ except ImportError:
 from lib.core.common import weAreFrozen
 from lib.core.common import getUnicode
 from lib.core.common import setPaths
-from lib.core.common import makeurl
-from lib.core.common import banner
-from lib.core.common import Get_lineNumber_fileName
-from lib.core.log import logger
+from lib.core.common import Banner,makeurl
 import os
 import inspect,time
 from distutils.version import LooseVersion
-from lib.core.settings import VERSION
-from lib.core.settings import LIST_PLUGINS
-from lib.core.data import urlconfig
+from lib.core.settings import VERSION,LIST_PLUGINS,IS_WIN
+from lib.core.data import urlconfig,logger
 from lib.core.exploit import Exploit_run
-from lib.utils import crawler
-from lib.core.common import createIssueForBlog
-from lib.core.update import updateProgram
+from lib.core.option import initOption
+from thirdparty.colorama.initialise import init as winowsColorInit
+from lib.core.common import createIssueForBlog,systemQuit,printMessage
+from lib.core.engine import pluginScan,webScan
+from lib.core.exception import ToolkitUserQuitException
+from lib.core.exception import ToolkitMissingPrivileges
+from lib.core.exception import ToolkitSystemException,ToolkitPluginException
+
 import argparse,multiprocessing
+from lib.core.enums import EXIT_STATUS
 
 def modulePath():
     """
@@ -67,93 +69,47 @@ def main():
     """
     checkEnvironment() # 检测环境
     setPaths(modulePath()) # 为一些目录和文件设置了绝对路径
-    banner()
     
     parser = argparse.ArgumentParser(description="w9scan scanner")
     parser.add_argument("--update", help="update w9scan",action="store_true")
     parser.add_argument("--guide", help="w9scan to guide",action="store_true")
+    parser.add_argument("--banner", help="output the banner",action="store_true")
+    parser.add_argument("-u", help="url")
+    parser.add_argument("-p","--plugin", help="plugins")
+    parser.add_argument("-s","--search",help="find infomation of plugin")
+    parser.add_argument("--debug",help="output debug info",action="store_true",default = False)
     args = parser.parse_args()
 
-    if args.update:
-        updateProgram()
-        return 0
+    if IS_WIN:
+        winowsColorInit()
+    Banner()
+    initOption(args)
+    
     try:
-        inputUrl = raw_input('[1] Input url > ')
-        urlconfig.mutiurl = False
-        if inputUrl is '':
-            logger.critical("[xxx] You have to enter the url")
-            exit()
+        pluginScan()
+        webScan()
 
-        urlconfig.url = []
-        if inputUrl.startswith("@"):
-            urlconfig.mutiurl = True
-            fileName = inputUrl[1:]
-            try:
-                o = open(fileName,"r").readlines()
-                for url in o:
-                    urlconfig.url.append(makeurl(url.strip()))
-            except IOError as error:
-                logger.critical("Filename:'%s' open faild"%fileName)
-                exit()
-            if len(o) == 0:
-                logger.critical("[xxx] The target address is empty")
-                exit()
-            print urlconfig.url
-        else:
-            urlconfig.url.append(makeurl(inputUrl))
-        print '[***] URL has been loaded:%d' % len(urlconfig.url)
-        print("[Tips] You can select these plugins (%s) or select all"%(' '.join(LIST_PLUGINS)))
-        diyPlugin = raw_input("[2] Please select the required plugins > ")
+    except ToolkitMissingPrivileges, e:
+        logger.error(e)
+        systemQuit(EXIT_STATUS.ERROR_EXIT)
 
-        if diyPlugin.lower() == 'all':
-            urlconfig.diyPlugin = LIST_PLUGINS
-        else:
-            urlconfig.diyPlugin = diyPlugin.strip().split(' ')
-        print "[***] You select the plugins:%s"%(' '.join(urlconfig.diyPlugin))    
-        urlconfig.scanport = False
-        urlconfig.find_service = False
-        if 'find_service' in urlconfig.diyPlugin:
-            urlconfig.find_service = True
-            input_scanport = raw_input('[2.1] Need you scan all ports ?(Y/N) (default N)> ')
-            if input_scanport.lower() in ("y","yes"):
-                urlconfig.scanport = True
-        
-        urlconfig.threadNum = raw_input('[3] You need start number of thread (default 5) > ')
-        if urlconfig.threadNum == '':
-            urlconfig.threadNum = 5
+    except ToolkitSystemException, e:
+        logger.error(e)
+        systemQuit(EXIT_STATUS.ERROR_EXIT)
 
-        urlconfig.threadNum = int(urlconfig.threadNum)
-        urlconfig.deepMax = raw_input('[4] Set the depth of the crawler (default 200 | 0 don\'t use crawler ) > ')
-        if urlconfig.deepMax == '':
-            urlconfig.deepMax = 100
+    except ToolkitUserQuitException:
+        systemQuit(EXIT_STATUS.USER_QUIT)
 
-        startTime = time.clock()
-        e = Exploit_run(urlconfig.threadNum)
+    except ToolkitPluginException,e:
+        createIssueForBlog(e)
+        logger.warning('It seems like you reached a unhandled exception, We have automatically uploaded the exception information, please wait for a later update.')
 
-        for url in urlconfig.url:
-            print '[***] ScanStart Target:%s' % url
-            e.setCurrentUrl(url)
-            e.load_modules("www",url)
-            e.run()
-            if not urlconfig.mutiurl:
-                e.init_spider()
-                s = crawler.SpiderMain(url)
-                s.craw()
-            time.sleep(0.01)
-
-        endTime = time.clock()
-        urlconfig.runningTime = endTime - startTime
-        e.report()
-        
     except KeyboardInterrupt:
-        print("[***] User Interrupt")
-        exit()
+        systemQuit(EXIT_STATUS.USER_QUIT)
+
     except Exception as info:
-        logger.critical("[xxx] MainError: %s:%s"%(str(Exception),info))
-        data = e.buildHtml.getData()
-        aax = "error:%s urlconfig:%s date:%s"%(str(Exception) + " " + str(info),str(urlconfig),data)
-        createIssueForBlog(aax)
-        exit()
+        logger.warning("error:%s "%(str(Exception) + " " + str(info)))
+        logger.warning('It seems like you reached a unhandled exception, please report it to author\'s mail:<master@hacking8.com> or raise a issue via:<https://github.com/boy-hacl/w9scan/issues/new>.')
 
 if __name__ == '__main__':
     main()

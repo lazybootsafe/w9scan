@@ -1,17 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-class ReadPluginsException(Exception):
+class ToolkitBaseException(Exception):
     pass
 
-class LoadPluginException(Exception):
+class ToolkitDataException(ToolkitBaseException):
     pass
 
-class LoadModuleException(Exception):
+class ToolkitMissingPrivileges(ToolkitBaseException):
     pass
 
-class BuildHtmlErrorException(Exception):
+class ToolkitUserQuitException(ToolkitBaseException):
     pass
 
-class SaveReportException(Exception):
+class ToolkitSystemException(ToolkitBaseException):
+    pass
+
+class ToolkitValueException(ToolkitBaseException):
+    pass
+
+class ToolkitPluginException(ToolkitBaseException):
     pass
